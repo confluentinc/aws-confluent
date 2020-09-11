@@ -1,0 +1,1328 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "Cloudformation Template for Confluent AWS Marketplace Deployment (Ubuntu 18.04)",
+  "Parameters" : {
+    "ClusterName": {
+      "Description" : "Enter the Cluster Name",
+      "Type" : "String"
+    },
+    "KeyName" : {
+      "Description" : "EC2 Instance SSH Key",
+      "Type" : "AWS::EC2::KeyPair::KeyName"
+    },
+    "InventoryInstanceType" : {
+      "Description" : "Choose EC2 instance type for Ansible Inventory Node",
+      "Type" : "String",
+      "Default" : "t2.micro",
+      "AllowedValues": [ "t2.micro", "t2.medium", "t2.small", "m5.large" ]
+    },
+    "BrokerInstanceType" : {
+      "Description" : "Choose EC2 instance type for Kafka Broker",
+      "Type" : "String",
+      "Default" : "m4.large",
+      "AllowedValues" : [ "m4.large", "m4.xlarge", "m4.2xlarge", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "r4.large", "r4.xlarge", "r4.2xlarge", "c5.large", "c5.xlarge", "c5.2xlarge", "r5.large", "r5.xlarge", "r5.2xlarge" ]
+    },
+    "ZookeeperInstanceType" : {
+      "Description" : "Choose EC2 instance type for Zookeeper",
+      "Type" : "String",
+      "Default" : "m4.large",
+      "AllowedValues" : [ "m4.large", "m4.xlarge", "m4.2xlarge", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "r4.large", "r4.xlarge", "r4.2xlarge", "c5.large", "c5.xlarge", "c5.2xlarge", "r5.large", "r5.xlarge", "r5.2xlarge" ]
+    },
+    "SchemaRegistryInstanceType" : {
+      "Description" : "Choose EC2 instance type for Schema Registry",
+      "Type" : "String",
+      "Default" : "m4.large",
+      "AllowedValues" : [ "m4.large", "m4.xlarge", "m4.2xlarge", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "r4.large", "r4.xlarge", "r4.2xlarge", "c5.large", "c5.xlarge", "c5.2xlarge", "r5.large", "r5.xlarge", "r5.2xlarge" ]
+    },
+    "KafkaRestInstanceType" : {
+      "Description" : "Choose EC2 instance type for Kafka Rest",
+      "Type" : "String",
+      "Default" : "m4.large",
+      "AllowedValues" : [ "m4.large", "m4.xlarge", "m4.2xlarge", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "r4.large", "r4.xlarge", "r4.2xlarge", "c5.large", "c5.xlarge", "c5.2xlarge", "r5.large", "r5.xlarge", "r5.2xlarge" ]
+    },
+    "KSQLInstanceType" : {
+      "Description" : "Choose EC2 instance type for KSQL",
+      "Type" : "String",
+      "Default" : "m4.large",
+      "AllowedValues" : [ "m4.large", "m4.xlarge", "m4.2xlarge", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "r4.large", "r4.xlarge", "r4.2xlarge", "c5.large", "c5.xlarge", "c5.2xlarge", "r5.large", "r5.xlarge", "r5.2xlarge" ]
+    },
+    "KafkaConnectInstanceType" : {
+      "Description" : "Choose EC2 instance type for Kafka Connect",
+      "Type" : "String",
+      "Default" : "m4.large",
+      "AllowedValues" : [ "m4.large", "m4.xlarge", "m4.2xlarge", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "r4.large", "r4.xlarge", "r4.2xlarge", "c5.large", "c5.xlarge", "c5.2xlarge", "r5.large", "r5.xlarge", "r5.2xlarge" ]
+    },
+    "ControlCenterInstanceType" : {
+      "Description" : "Choose EC2 instance type for Control Center",
+      "Type" : "String",
+      "Default" : "m4.large",
+      "AllowedValues" : [ "m4.large", "m4.xlarge", "m4.2xlarge", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "r4.large", "r4.xlarge", "r4.2xlarge", "c5.large", "c5.xlarge", "c5.2xlarge", "r5.large", "r5.xlarge", "r5.2xlarge" ]
+    },
+    "BrokerVolume": {
+      "Type": "String",
+      "Description": "Enter Volume Size for Broker instances",
+      "Default": "10"
+    },
+    "ZookeeperVolume": {
+      "Type": "String",
+      "Description": "Enter Volume Size for Zookeeper instances",
+      "Default": "10"
+    },
+    "WorkerVolume": {
+      "Type": "String",
+      "Description": "Enter Volume Size for Worker instances",
+      "Default": "10"
+    },
+    "VpcId": {
+      "Type": "AWS::EC2::VPC::Id",
+      "Description": "Enter VPCId of your existing Virtual Private Cloud (VPC) which has atleast 3 public and private subnets",
+      "ConstraintDescription": "Must be the VPC Id of an existing Virtual Private Cloud."
+    },
+    "PrivateSubnet": {
+      "Type": "List<AWS::EC2::Subnet::Id>",
+      "Description": "Select a list of atleast 3 private subnets from existing VPC,must have route to internet to download updates",
+      "ConstraintDescription": "Must be a list of at least three existing subnets associated with at least three different availability zones. They should be residing in the selected Virtual Private Cloud."
+    },
+    "PublicSubnet": {
+      "Type": "List<AWS::EC2::Subnet::Id>",
+      "Description": "Select a list of atleast 3 public subnet from existing VPC",
+      "ConstraintDescription": "Must be a list of at least three existing subnets associated with at least three different availability zones. They should be residing in the selected Virtual Private Cloud."
+    },
+    "BrokerCount": {
+      "Description": "Choose number of Kafka Brokers",
+      "Type": "String",
+      "Default": "3",
+      "AllowedValues": [ "3", "4", "5" ]
+    },
+    "ZookeeperCount": {
+      "Description": "Choose number of Zookeepers",
+      "Type": "String",
+      "Default": "3",
+      "AllowedValues": [ "3", "4", "5" ]
+    },
+    "SchemaRegistryCount": {
+      "Description": "Choose number of Schema Registry Nodes",
+      "Type": "String",
+      "Default": "1",
+      "AllowedValues": [ "1" ]
+    },
+    "KafkaRestCount": {
+      "Description": "Choose number of Kafka Rest Nodes",
+      "Type": "String",
+      "Default": "0",
+      "AllowedValues": [ "0", "1", "2" ]
+    },
+    "KSQLCount": {
+      "Description": "Choose number of KSQL Nodes",
+      "Type": "String",
+      "Default": "0",
+      "AllowedValues": [ "0", "1", "2", "3", "4", "5" ]
+    },
+    "KafkaConnectCount": {
+      "Description": "Choose number of Kafka Connect Nodes",
+      "Type": "String",
+      "Default": "0",
+      "AllowedValues": [ "0", "1", "2" ]
+    },
+    "ControlCenterCount": {
+      "Description": "Choose number of Control Center Nodes",
+      "Type": "String",
+      "Default": "1",
+      "AllowedValues": [ "1" ]
+    },
+    "SSHLocation": {
+      "Description": "Lockdown SSH access for instances and IP Address to access Control Center Dashboard",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "Must be a valid CIDR range of the form x.x.x.x/x."
+    },
+    "AWSRegion": {
+      "Description": "AWS Region to Deploy the Confluent Platform",
+      "Type": "String",
+      "Default": "us-east-1",
+      "AllowedValues": [
+        "ap-northeast-1",
+        "ap-south-1",
+        "ap-southeast-1",
+        "ap-southeast-2",
+        "ca-central-1",
+        "eu-central-1",
+        "eu-west-1",
+        "eu-west-2",
+        "sa-east-1",
+        "us-east-1",
+        "us-east-2",
+        "us-west-2"
+      ]
+    },
+    "BucketName": {
+      "Description": "Enter the name of the Bucket where keypair resides",
+      "Type": "String",
+      "ConstraintDescription": "Must be a bucket residing in the same AWS Account and must have the keypair to launch instances"
+    },
+    "BranchName": {
+      "Description": "Enter the Branch Name of cp-ansible GitHub Repository",
+      "Type": "String",
+      "Default": "5.5.0-post",
+      "AllowedValues": [ "5.5.0-post" ]
+    }
+  },
+  "Mappings": {
+    "RegionMap": {
+      "ap-northeast-1"    : { "AMIId" : ""},
+        "ap-south-1"      : { "AMIId" : ""},
+        "ap-southeast-1"  : { "AMIId" : ""},
+        "ap-southeast-2"  : { "AMIId" : ""},
+        "ca-central-1"    : { "AMIId" : ""},
+        "eu-central-1"    : { "AMIId" : ""},
+        "eu-west-1"       : { "AMIId" : ""},
+        "eu-west-2"       : { "AMIId" : ""},
+        "sa-east-1"       : { "AMIId" : ""},
+        "us-east-1"       : { "AMIId" : ""},
+        "us-east-2"       : { "AMIId" : ""},
+        "us-west-2"       : { "AMIId" : ""}
+    }
+  },
+  "Metadata" : {
+    "AWS::CloudFormation::Interface" : {
+      "ParameterGroups" : [
+        {
+          "Label" : { "default" : "Cluster details" },
+          "Parameters" : [ "AWSRegion", "BranchName", "ClusterName" ]
+        },
+        {
+          "Label" : { "default" : "Network Configuration" },
+          "Parameters" : [ "VpcId", "PrivateSubnet", "PublicSubnet", "SSHLocation" ]
+        },
+        {
+          "Label" : { "default" : "Private Key Selection" },
+          "Parameters" : [ "BucketName", "KeyName" ]
+        },
+        {
+          "Label" : { "default" : "Amazon EC2 Instance type Selection" },
+          "Parameters" : [ "InventoryInstanceType", "BrokerInstanceType", "ZookeeperInstanceType", "SchemaRegistryInstanceType", "KafkaRestInstanceType", "KSQLInstanceType", "KafkaConnectInstanceType", "ControlCenterInstanceType" ]
+        },
+        {
+          "Label" : { "default" : "Amazon EC2 Instance count Selection" },
+          "Parameters" : [ "BrokerCount", "ZookeeperCount", "SchemaRegistryCount", "KafkaRestCount", "KSQLCount", "KafkaConnectCount", "ControlCenterCount" ]
+        },
+        {
+          "Label" : { "default" : "Amazon EC2 Volume size Selection" },
+          "Parameters" : [ "BrokerVolume", "ZookeeperVolume", "WorkerVolume" ]
+        }
+      ],
+      "ParameterLabels" : {
+        "VpcId" : { "default" : "Which VPC should this be deployed to?" },
+        "PrivateSubnet" : { "default" : "List of Private Subnets" },
+        "PublicSubnet" : { "default" : "List of Public Subnets" },
+        "SSHLocation" : { "default" : "CIDR for SSH and accessing Control Center Dashboard" },
+        "BucketName" : { "default" : "S3 Bucket Name which contains KeyPair" },
+        "KeyName" : { "default" : "KeyPair" },
+        "BranchName" : { "default" : "CP-Ansible Github Repository Branch-Name" }
+      }
+    }
+  },
+  "Resources" : {
+    "ConfluentSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Security Group for Confluent Platform",
+        "SecurityGroupIngress": [
+          {
+            "Description" : "Rule to view Control Center Dashboard on Public IP from the specified CIDR Block",
+            "IpProtocol" : "tcp",
+            "FromPort" : "9021",
+            "ToPort" : "9021",
+            "CidrIp" : {
+              "Ref" : "SSHLocation"
+            }
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "Description" : "Rule to allow all outbound traffic",
+            "IpProtocol" : "-1",
+            "CidrIp" : "0.0.0.0/0"
+          }
+        ],
+        "VpcId": {
+          "Ref" : "VpcId"
+        },
+        "Tags" : [
+          {
+            "Key" : "Name",
+            "Value" : "ConfluentSG"
+          }
+        ]
+      }
+    },
+    "InventoryNodeSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Security Group for Ansible Inventory Node",
+        "SecurityGroupIngress": [
+          {
+            "Description" : "Rule to allow SSH access into the Ansible Inventory Node from the specified CIDR Block",
+            "IpProtocol" : "tcp",
+            "FromPort" : "22",
+            "ToPort" : "22",
+            "CidrIp" : {
+              "Ref" : "SSHLocation"
+            }
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "Description" : "Rule to allow all outbound traffic",
+            "IpProtocol" : "-1",
+            "CidrIp" : "0.0.0.0/0"
+          }
+        ],
+        "VpcId": {
+          "Ref" : "VpcId"
+        },
+        "Tags" : [
+          {
+            "Key" : "Name",
+            "Value" : "InventoryNodeSG"
+          }
+        ]
+      }
+    },
+    "KafkaBrokeringress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "ConfluentSG",
+      "Properties": {
+        "Description" : "Kafka Broker rule to allow inter-broker communication and client communication",
+        "IpProtocol": "tcp",
+        "FromPort": "9091",
+        "ToPort": "9092",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      },
+	      "GroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      }
+      }
+    },
+    "ControlCenteringress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "ConfluentSG",
+      "Properties": {
+        "Description" : "Confluent Control Center rule",
+        "IpProtocol": "tcp",
+        "FromPort": "9021",
+        "ToPort": "9021",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      },
+	      "GroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      }
+      }
+    },
+    "KafkaConnectingress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "ConfluentSG",
+      "Properties": {
+        "Description" : "Connect REST API rule",
+        "IpProtocol": "tcp",
+        "FromPort": "8083",
+        "ToPort": "8083",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      },
+	      "GroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      }
+      }
+    },
+    "KSQLRestingress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "ConfluentSG",
+      "Properties": {
+        "Description" : "KSQL DB REST API rule",
+        "IpProtocol": "tcp",
+        "FromPort": "8088",
+        "ToPort": "8088",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      },
+	      "GroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      }
+      }
+    },
+    "MDSingress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "ConfluentSG",
+      "Properties": {
+        "Description" : "Metadata Service (MDS) rule if using RBAC",
+        "IpProtocol": "tcp",
+        "FromPort": "8090",
+        "ToPort": "8090",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      },
+	      "GroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      }
+      }
+    },
+    "RESTProxyingress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "ConfluentSG",
+      "Properties": {
+        "Description" : "REST Proxy rule",
+        "IpProtocol": "tcp",
+        "FromPort": "8082",
+        "ToPort": "8082",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      },
+	      "GroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      }
+      }
+    },
+    "SchemaRegistry1ingress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "ConfluentSG",
+      "Properties": {
+        "Description" : "Schema Registry REST API rule",
+        "IpProtocol": "tcp",
+        "FromPort": "8081",
+        "ToPort": "8081",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      },
+	      "GroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      }
+      }
+    },
+    "Zookeeper1ingress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "ConfluentSG",
+      "Properties": {
+        "Description" : "Zookeeper rule at which client connects",
+        "IpProtocol": "tcp",
+        "FromPort": "2181",
+        "ToPort": "2181",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      },
+	      "GroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      }
+      }
+    },
+    "Zookeeper2ingress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "ConfluentSG",
+      "Properties": {
+        "Description" : "Zookeeper rule to connect to other peers",
+        "IpProtocol": "tcp",
+        "FromPort": "2888",
+        "ToPort": "2888",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      },
+	      "GroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      }
+      }
+    },
+    "Zookeeper3ingress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "ConfluentSG",
+      "Properties": {
+        "Description" : "Zookeeper rule to connect to other peers",
+        "IpProtocol": "tcp",
+        "FromPort": "3888",
+        "ToPort": "3888",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      },
+	      "GroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      }
+      }
+    },
+    "SSHingress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "InventoryNodeSG",
+      "Properties": {
+        "Description" : "Rule to allow traffic from Ansible Inventory Node to Confluent Platform components for configuration through Ansible",
+        "IpProtocol": "tcp",
+        "FromPort": "22",
+        "ToPort": "22",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [ "InventoryNodeSG", "GroupId" ]
+	      },
+	      "GroupId": {
+          "Fn::GetAtt": [ "ConfluentSG", "GroupId" ]
+	      }
+      }
+    },
+    "ConfluentInstanceProfile" : {
+      "Type" : "AWS::IAM::InstanceProfile",
+      "Properties" : {
+        "Path" : "/",
+        "Roles" : [
+          {
+            "Ref" : "ConfluentRole"
+          }
+        ]
+      }
+    },
+    "ConfluentPolicy" : {
+      "Type" : "AWS::IAM::Policy",
+      "Properties" : {
+        "PolicyName" : "ConfluentPolicy",
+        "PolicyDocument" : {
+          "Statement" : [
+            {
+              "Effect" : "Allow",
+              "Action" : [
+                "s3:GetObject"
+              ],
+              "Resource": [
+                {
+                  "Fn::Sub": "arn:aws:s3:::${BucketName}/*"
+                },
+                {
+                  "Fn::Sub": "arn:aws:s3:::${BucketName}"
+                }
+              ]
+            },
+            {
+              "Effect" : "Allow",
+              "Action" : [
+                "ec2:DescribeInstances"
+              ],
+              "Resource" : "*"
+            }
+          ]
+        },
+        "Roles" : [
+          {
+            "Ref" : "ConfluentRole"
+          }
+        ]
+      }
+    },
+    "ConfluentRole" : {
+      "Type" : "AWS::IAM::Role",
+      "Properties" : {
+        "AssumeRolePolicyDocument": {
+          "Version" : "2012-10-17",
+          "Statement" : [
+            {
+              "Effect" : "Allow",
+              "Principal" : {
+                "Service" : ["ec2.amazonaws.com"]
+              },
+              "Action" : [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path" : "/"
+      }
+    },
+    "BrokerLaunchConfiguration" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "InstanceType" : {
+          "Ref" : "BrokerInstanceType"
+        },
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMIId" ]},
+        "KeyName" : {
+          "Ref" : "KeyName"
+        },
+        "SecurityGroups" : [
+          {
+            "Ref" : "ConfluentSG"
+          }
+        ],
+        "BlockDeviceMappings" : [
+          {
+            "DeviceName" : "/dev/sda1",
+            "Ebs" : {
+              "VolumeSize": {
+                "Ref" : "BrokerVolume"
+              },
+              "DeleteOnTermination" : "false"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64" : {
+            "Fn::Join" : ["",
+              [
+                "#!/bin/bash -xe\n",
+                "echo 'Run updates'\n",
+                "apt-get update -y\n",
+                "echo \"Fetch the openssh key to SSH into the Instances...\"\n",
+                "curl http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key > /tmp/my-key\n",
+                "cat /tmp/my-key >> ~/.ssh/authorized_keys\n",
+                "chmod 700 ~/.ssh/authorized_keys\n",
+                "rm /tmp/my-key\n",
+                "echo 'Send cfn-signal'\n",
+                "cfn-signal --exit-code 0 --resource BrokerAutoScalingGroup --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                " --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                }
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "ZookeeperLaunchConfiguration" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "InstanceType" : {
+          "Ref" : "ZookeeperInstanceType"
+        },
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMIId" ]},
+        "KeyName" : {
+          "Ref" : "KeyName"
+        },
+        "SecurityGroups" : [
+          {
+            "Ref" : "ConfluentSG"
+          }
+        ],
+        "BlockDeviceMappings" : [
+          {
+            "DeviceName" : "/dev/sda1",
+            "Ebs" : {
+              "VolumeSize": {
+                "Ref" : "ZookeeperVolume"
+              },
+              "DeleteOnTermination" : "false"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64" : {
+            "Fn::Join" : ["",
+              [
+                "#!/bin/bash -xe\n",
+                "echo 'Run updates'\n",
+                "apt-get update -y\n",
+                "echo \"Fetch the openssh key to SSH into the Instances...\"\n",
+                "curl http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key > /tmp/my-key\n",
+                "cat /tmp/my-key >> ~/.ssh/authorized_keys\n",
+                "chmod 700 ~/.ssh/authorized_keys\n",
+                "rm /tmp/my-key\n",
+                "echo 'Send cfn-signal'\n",
+                "cfn-signal --exit-code 0 --resource ZookeeperAutoScalingGroup --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                " --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                }
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "SchemaRegistryLaunchConfiguration" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "InstanceType" : {
+          "Ref" : "SchemaRegistryInstanceType"
+        },
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMIId" ]},
+        "KeyName" : {
+          "Ref" : "KeyName"
+        },
+        "SecurityGroups" : [
+          {
+            "Ref" : "ConfluentSG"
+          }
+        ],
+        "BlockDeviceMappings" : [
+          {
+            "DeviceName" : "/dev/sda1",
+            "Ebs" : {
+              "VolumeSize": {
+                "Ref" : "WorkerVolume"
+              },
+              "DeleteOnTermination" : "false"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64" : {
+            "Fn::Join" : ["",
+              [
+                "#!/bin/bash -xe\n",
+                "echo 'Run updates'\n",
+                "apt-get update -y\n",
+                "echo \"Fetch the openssh key to SSH into the Instances...\"\n",
+                "curl http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key > /tmp/my-key\n",
+                "cat /tmp/my-key >> ~/.ssh/authorized_keys\n",
+                "chmod 700 ~/.ssh/authorized_keys\n",
+                "rm /tmp/my-key\n",
+                "echo 'Send cfn-signal'\n",
+                "cfn-signal --exit-code 0 --resource SchemaRegistryAutoScalingGroup --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                " --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                }
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "KafkaRestLaunchConfiguration" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "InstanceType" : {
+          "Ref" : "KafkaRestInstanceType"
+        },
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMIId" ]},
+        "KeyName" : {
+          "Ref" : "KeyName"
+        },
+        "SecurityGroups" : [
+          {
+            "Ref" : "ConfluentSG"
+          }
+        ],
+        "BlockDeviceMappings" : [
+          {
+            "DeviceName" : "/dev/sda1",
+            "Ebs" : {
+              "VolumeSize": {
+                "Ref" : "WorkerVolume"
+              },
+              "DeleteOnTermination" : "false"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64" : {
+            "Fn::Join" : ["",
+              [
+                "#!/bin/bash -xe\n",
+                "echo 'Run updates'\n",
+                "apt-get update -y\n",
+                "echo \"Fetch the openssh key to SSH into the Instances...\"\n",
+                "curl http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key > /tmp/my-key\n",
+                "cat /tmp/my-key >> ~/.ssh/authorized_keys\n",
+                "chmod 700 ~/.ssh/authorized_keys\n",
+                "rm /tmp/my-key\n",
+                "echo 'Send cfn-signal'\n",
+                "cfn-signal --exit-code 0 --resource KafkaRestAutoScalingGroup --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                " --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                }
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "KSQLLaunchConfiguration" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "InstanceType" : {
+          "Ref" : "KSQLInstanceType"
+        },
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMIId" ]},
+        "KeyName" : {
+          "Ref" : "KeyName"
+        },
+        "SecurityGroups" : [
+          {
+            "Ref" : "ConfluentSG"
+          }
+        ],
+        "BlockDeviceMappings" : [
+          {
+            "DeviceName" : "/dev/sda1",
+            "Ebs" : {
+              "VolumeSize": {
+                "Ref" : "WorkerVolume"
+              },
+              "DeleteOnTermination" : "false"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64" : {
+            "Fn::Join" : ["",
+              [
+                "#!/bin/bash -xe\n",
+                "echo 'Run updates'\n",
+                "apt-get update -y\n",
+                "echo \"Fetch the openssh key to SSH into the Instances...\"\n",
+                "curl http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key > /tmp/my-key\n",
+                "cat /tmp/my-key >> ~/.ssh/authorized_keys\n",
+                "chmod 700 ~/.ssh/authorized_keys\n",
+                "rm /tmp/my-key\n",
+                "echo 'Send cfn-signal'\n",
+                "cfn-signal --exit-code 0 --resource KSQLAutoScalingGroup --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                " --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                }
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "KafkaConnectLaunchConfiguration" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "InstanceType" : {
+          "Ref" : "KafkaConnectInstanceType"
+        },
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMIId" ]},
+        "KeyName" : {
+          "Ref" : "KeyName"
+        },
+        "SecurityGroups" : [
+          {
+            "Ref" : "ConfluentSG"
+          }
+        ],
+        "BlockDeviceMappings" : [
+          {
+            "DeviceName" : "/dev/sda1",
+            "Ebs" : {
+              "VolumeSize": {
+                "Ref" : "WorkerVolume"
+              },
+              "DeleteOnTermination" : "false"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64" : {
+            "Fn::Join" : ["",
+              [
+                "#!/bin/bash -xe\n",
+                "echo 'Run updates'\n",
+                "apt-get update -y\n",
+                "echo \"Fetch the openssh key to SSH into the Instances...\"\n",
+                "curl http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key > /tmp/my-key\n",
+                "cat /tmp/my-key >> ~/.ssh/authorized_keys\n",
+                "chmod 700 ~/.ssh/authorized_keys\n",
+                "rm /tmp/my-key\n",
+                "echo 'Send cfn-signal'\n",
+                "cfn-signal --exit-code 0 --resource KafkaConnectAutoScalingGroup --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                " --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                }
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "ControlCenterLaunchConfiguration" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "InstanceType" : {
+          "Ref" : "ControlCenterInstanceType"
+        },
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMIId" ]},
+        "KeyName" : {
+          "Ref" : "KeyName"
+        },
+        "SecurityGroups" : [
+          {
+            "Ref" : "ConfluentSG"
+          }
+        ],
+        "BlockDeviceMappings" : [
+          {
+            "DeviceName" : "/dev/sda1",
+            "Ebs" : {
+              "VolumeSize": {
+                "Ref" : "WorkerVolume"
+              },
+              "DeleteOnTermination" : "false"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64" : {
+            "Fn::Join" : ["",
+              [
+                "#!/bin/bash -xe\n",
+                "echo 'Run updates'\n",
+                "apt-get update -y\n",
+                "echo \"Fetch the openssh key to SSH into the Instances...\"\n",
+                "curl http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key > /tmp/my-key\n",
+                "cat /tmp/my-key >> ~/.ssh/authorized_keys\n",
+                "chmod 700 ~/.ssh/authorized_keys\n",
+                "rm /tmp/my-key\n",
+                "echo 'Set ulimit' \n",
+                "echo '* soft nofile 16384' >> /etc/security/limits.conf\n",
+                "echo '* hard nofile 16384' >> /etc/security/limits.conf\n",
+                "echo 'Send cfn-signal'\n",
+                "cfn-signal --exit-code 0 --resource ControlCenterAutoScalingGroup --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                " --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                }
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "InventoryNodeLaunchConfiguration" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "InstanceType" : {
+          "Ref" : "InventoryInstanceType"
+        },
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMIId" ]},
+        "KeyName" : {
+          "Ref" : "KeyName"
+        },
+        "IamInstanceProfile" : {
+          "Ref" : "ConfluentInstanceProfile"
+        },
+        "SecurityGroups" : [
+          {
+            "Ref" : "InventoryNodeSG"
+          }
+        ],
+        "UserData" : {
+          "Fn::Base64" : {
+            "Fn::Join" : ["",
+              [
+                "#!/bin/bash -xe\n",
+                "echo 'Run updates'\n",
+                "apt-get update -y\n",
+                "echo \"Fetch the openssh key to SSH into the Instances...\"\n",
+                "curl http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key > /tmp/my-key\n",
+                "cat /tmp/my-key >> ~/.ssh/authorized_keys\n",
+                "chmod 700 ~/.ssh/authorized_keys\n",
+                "rm /tmp/my-key\n",
+                "echo 'Clone cp-ansible playbooks' \n",
+                {
+                  "Fn::Sub": "git clone --branch ${BranchName} --single-branch https://github.com/confluentinc/cp-ansible.git /home/ubuntu/cp-ansible\n"
+                },
+                "echo 'Set AWS Region for awscli' \n",
+                {
+                  "Fn::Sub": "export AWS_DEFAULT_REGION=${AWSRegion} \n"
+                },
+                {
+                  "Fn::Sub": "echo 'export AWS_DEFAULT_REGION=${AWSRegion}' >> /home/ubuntu/.profile\n"
+                },
+                {
+                  "Fn::Sub": "echo 'export AWS_DEFAULT_REGION=${AWSRegion}' >> /root/.profile\n"
+                },
+                "echo 'Obtain private key required to run Ansible Playbooks' \n",
+                {
+                  "Fn::Sub": "aws s3 cp s3://${BucketName}/${KeyName}.pem /home/ubuntu/.ssh/confluent/confluent.pem\n"
+                },
+                "echo 'Change permissions for the key' \n",
+                "chmod 400 /home/ubuntu/.ssh/confluent/confluent.pem\n",
+                "echo 'Remove existing ansible.cfg file'\n",
+                "rm /home/ubuntu/cp-ansible/ansible.cfg\n",
+                "echo 'Obtain inventory.py and ansible.cfg'\n",
+                "wget https://confluent-aws-marketplace.s3.amazonaws.com/inventory.py -P /home/ubuntu/cp-ansible\n",
+                "wget https://confluent-aws-marketplace.s3.amazonaws.com/ansible.cfg -P /home/ubuntu/cp-ansible\n",
+                "chmod +x /home/ubuntu/cp-ansible/inventory.py\n",
+                "echo 'Set ANSIBLE_SSH_USER for running inventory.py' \n",
+                "export ANSIBLE_SSH_USER=ubuntu \n",
+                "echo 'Set Cluster Name' \n",
+                {
+                  "Fn::Sub": "export CLUSTER_NAME=${ClusterName} \n"
+                },
+                {
+                  "Fn::Sub": "echo 'export CLUSTER_NAME=${ClusterName}' >> /home/ubuntu/.profile\n"
+                },
+                {
+                  "Fn::Sub": "echo 'export CLUSTER_NAME=${ClusterName}' >> /root/.profile\n"
+                },
+                "source /home/ubuntu/.profile\n",
+                "source /root/.profile\n",
+                "chmod +x /home/ubuntu/cp-ansible/inventory.py\n",
+                "echo 'TIMEOUT' \n",
+                "sleep 2m\n",
+                "cd /home/ubuntu/cp-ansible\n",
+                "echo 'Run the Ansible Playbooks' \n",
+                "ansible-playbook -i inventory.py all.yml\n",
+                "echo 'Check for failure of Ansible Playbook'\n",
+                "if ! [ $? -eq 0 ]; then ansible-playbook -i inventory.py all.yml; else echo 'Ansible Playbook ran successfully'; fi\n",
+                "echo 'Enable SSH to worker nodes'\n",
+                "echo 'User ubuntu\nIdentityFile /home/ubuntu/.ssh/confluent/confluent.pem\nForwardAgent Yes' >> /home/ubuntu/.ssh/config\n",
+                "chmod 600 /home/ubuntu/.ssh/config\n",
+                "echo 'Change ownership of the files'\n",
+                "chown ubuntu /home/ubuntu/.ssh/config /home/ubuntu/.ssh/confluent/confluent.pem /home/ubuntu/cp-ansible\n",
+                "echo 'Send cfn-signal'\n",
+                "cfn-signal --exit-code 0 --resource InventoryNodeAutoScalingGroup --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                " --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                }
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "ZookeeperAutoScalingGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "VPCZoneIdentifier": {
+          "Ref": "PrivateSubnet"
+        },
+        "Tags": [
+          {
+            "Key": "Tag",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "Zookeeper" ]]
+            }
+          },
+          {
+            "Key": "Name",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "Confluent-Zookeeper" ]]
+            }
+          }
+        ],
+        "LaunchConfigurationName": {
+          "Ref": "ZookeeperLaunchConfiguration"
+        },
+        "MinSize": 3,
+        "MaxSize": 5,
+        "DesiredCapacity": {
+          "Ref": "ZookeeperCount"
+        }
+      },
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Count": {
+            "Ref": "ZookeeperCount"
+          },
+          "Timeout": "PT30M"
+        }
+      }
+    },
+    "BrokerAutoScalingGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "VPCZoneIdentifier": {
+          "Ref": "PrivateSubnet"
+        },
+        "Tags": [
+          {
+            "Key": "Tag",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "KafkaBroker" ]]
+            }
+          },
+          {
+            "Key": "Name",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "Confluent-Kafka-Broker" ]]
+            }
+          }
+        ],
+        "LaunchConfigurationName": {
+          "Ref": "BrokerLaunchConfiguration"
+        },
+        "MinSize": 3,
+        "MaxSize": 5,
+        "DesiredCapacity": {
+          "Ref": "BrokerCount"
+        }
+      },
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Count": {
+            "Ref": "BrokerCount"
+          },
+          "Timeout": "PT30M"
+        }
+      }
+    },
+    "SchemaRegistryAutoScalingGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "VPCZoneIdentifier": {
+          "Ref": "PrivateSubnet"
+        },
+        "Tags": [
+          {
+            "Key": "Tag",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "SchemaRegistry" ]]
+            }
+          },
+          {
+            "Key": "Name",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "Confluent-Schema-Registry" ]]
+            }
+          }
+        ],
+        "LaunchConfigurationName": {
+          "Ref": "SchemaRegistryLaunchConfiguration"
+        },
+        "MinSize": 1,
+        "MaxSize": 1,
+        "DesiredCapacity": {
+          "Ref": "SchemaRegistryCount"
+        }
+      },
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Count": {
+            "Ref": "SchemaRegistryCount"
+          },
+          "Timeout": "PT30M"
+        }
+      }
+    },
+    "KafkaConnectAutoScalingGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "VPCZoneIdentifier": {
+          "Ref": "PrivateSubnet"
+        },
+        "Tags": [
+          {
+            "Key": "Tag",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "KafkaConnect" ]]
+            }
+          },
+          {
+            "Key": "Name",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "Confluent-Kafka-Connect" ]]
+            }
+          }
+        ],
+        "LaunchConfigurationName": {
+          "Ref": "KafkaConnectLaunchConfiguration"
+        },
+        "MinSize": 0,
+        "MaxSize": 2,
+        "DesiredCapacity": {
+          "Ref": "KafkaConnectCount"
+        }
+      },
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Count": {
+            "Ref": "KafkaConnectCount"
+          },
+          "Timeout": "PT30M"
+        }
+      }
+    },
+    "KafkaRestAutoScalingGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "VPCZoneIdentifier": {
+          "Ref": "PrivateSubnet"
+        },
+        "Tags": [
+          {
+            "Key": "Tag",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "KafkaRest" ]]
+            }
+          },
+          {
+            "Key": "Name",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "Confluent-Kafka-Rest" ]]
+            }
+          }
+        ],
+        "LaunchConfigurationName": {
+          "Ref": "KafkaRestLaunchConfiguration"
+        },
+        "MinSize": 0,
+        "MaxSize": 2,
+        "DesiredCapacity": {
+          "Ref": "KafkaRestCount"
+        }
+      },
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Count": {
+            "Ref": "KafkaRestCount"
+          },
+          "Timeout": "PT30M"
+        }
+      }
+    },
+    "KSQLAutoScalingGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "VPCZoneIdentifier": {
+          "Ref": "PrivateSubnet"
+        },
+        "Tags": [
+          {
+            "Key": "Tag",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "Ksql" ]]
+            }
+          },
+          {
+            "Key": "Name",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "Confluent-KSQL" ]]
+            }
+          }
+        ],
+        "LaunchConfigurationName": {
+          "Ref": "KSQLLaunchConfiguration"
+        },
+        "MinSize": 0,
+        "MaxSize": 5,
+        "DesiredCapacity": {
+          "Ref": "KSQLCount"
+        }
+      },
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Count": {
+            "Ref": "KSQLCount"
+          },
+          "Timeout": "PT30M"
+        }
+      }
+    },
+    "ControlCenterAutoScalingGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "VPCZoneIdentifier": {
+          "Ref": "PublicSubnet"
+        },
+        "Tags": [
+          {
+            "Key": "Tag",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "ControlCenter" ]]
+            }
+          },
+          {
+            "Key": "Name",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "Confluent-Control-Center" ]]
+            }
+          }
+        ],
+        "LaunchConfigurationName": {
+          "Ref": "ControlCenterLaunchConfiguration"
+        },
+        "MinSize": 1,
+        "MaxSize": 1,
+        "DesiredCapacity": {
+          "Ref": "ControlCenterCount"
+        }
+      },
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Count": {
+            "Ref": "ControlCenterCount"
+          },
+          "Timeout": "PT30M"
+        }
+      }
+    },
+    "InventoryNodeAutoScalingGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "VPCZoneIdentifier": {
+          "Ref": "PublicSubnet"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "PropagateAtLaunch": "true",
+            "Value": {
+              "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "Confluent-Ansible-Inventory-Node" ]]
+            }
+          }
+        ],
+        "LaunchConfigurationName": {
+          "Ref": "InventoryNodeLaunchConfiguration"
+        },
+        "MinSize": 1,
+        "MaxSize": 1,
+        "DesiredCapacity": 1
+      },
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Count": "1",
+          "Timeout": "PT45M"
+        }
+      },
+      "DependsOn": [
+        "ZookeeperAutoScalingGroup",
+        "BrokerAutoScalingGroup",
+        "SchemaRegistryAutoScalingGroup",
+        "KafkaConnectAutoScalingGroup",
+        "KafkaRestAutoScalingGroup",
+        "KSQLAutoScalingGroup",
+        "ControlCenterAutoScalingGroup"
+      ]
+    }
+  }
+}
